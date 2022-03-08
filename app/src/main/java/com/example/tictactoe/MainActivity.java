@@ -2,16 +2,19 @@ package com.example.tictactoe;
 
 import androidx.appcompat.app.AppCompatActivity;
 import android.graphics.PorterDuff;
-import android.graphics.Typeface;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
     private Button btnReset, btnNewGame;
-    private TextView txtPlayerOneScore, txtPlayerTwoScore, txtPlayerOneLabel, txtPlayerTwoLabel;
+    private TextView txtPlayerOneScore, txtPlayerTwoScore;
     private LinearLayout llGameBoard;
     private boolean activePlayer;
     private boolean gameEnded;
@@ -24,40 +27,39 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         //DEFAULT VALUES
+        setDefaultValues();
+
+        //GET COMPONENTS BY ID
+        setDefaultIds();
+
+        //CREATE GAME GRID
+        llGameBoard.addView(generateGrid(gridSize));
+
+        //BUTTON RESET HANDLER
+        btnReset.setOnClickListener(view -> handleResetClick());
+
+        //BUTTON NEW GAME HANDLER
+        btnNewGame.setOnClickListener(view -> initiateNewGame());
+    }
+
+    private void setDefaultValues(){
         gridSize = 4;
         activePlayer = false;
         gameEnded = false;
         buttons = new Button[gridSize][gridSize];
+    }
 
-        //GET COMPONENTS BY ID
+    private void setDefaultIds(){
         btnReset = findViewById(R.id.btnReset);
         btnNewGame = findViewById(R.id.btnNewGame);
         txtPlayerOneScore = findViewById(R.id.txtPlayerOneScore);
         txtPlayerTwoScore = findViewById(R.id.txtPlayerTwoScore);
-        txtPlayerOneLabel = findViewById(R.id.txtPlayerOneLabel);
-        txtPlayerTwoLabel = findViewById(R.id.txtPlayerTwoLabel);
         llGameBoard = findViewById(R.id.llGameBoard);
+    }
 
-        //INITIAL HEADER STYLE
-        txtPlayerOneLabel.setTypeface(Typeface.DEFAULT_BOLD);
-
-        //CREATE GAME GRID
-        View grid = generateGrid(gridSize);
-        llGameBoard.addView(grid);
-
-        //BUTTON RESET HANDLER
-        btnReset.setOnClickListener(view -> {
-            finish();
-            startActivity(getIntent());
-        });
-
-        //BUTTON NEW GAME HANDLER
-        btnNewGame.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-
-            }
-        });
+    private void handleResetClick() {
+        finish();
+        startActivity(getIntent());
     }
 
     private LinearLayout generateGrid(int gridSize) {
@@ -115,22 +117,29 @@ public class MainActivity extends AppCompatActivity {
                 buttons[i][j].setTextSize(130);
 
                 //ON CELL CLICK
-                buttons[i][j].setOnClickListener(view -> {
-                    //GET BUTTON BY ID
-                    Button btn = findViewById(view.getId());
+                buttons[i][j].setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View view) {
+                        //GAME ENDED
+                        if (gameEnded) {
+                            String winningPlayer = getWinningPlayerName();
+                            Toast.makeText(MainActivity.this, "Player " + winningPlayer + " won the match, please start a new game.", Toast.LENGTH_SHORT).show();
+                            return;
+                        }
 
-                    //SHOULD BUTTON BE CLICKABLE
-                    boolean isClickable = btn.getText().toString().length() == 0;
-                    if(!isClickable) return;
+                        //GET BUTTON BY ID
+                        Button btn = findViewById(view.getId());
 
-                    setButtonText(btn);
-                    setButtonColor(btn);
-                    shouldGameEnd();
+                        //SHOULD BUTTON BE CLICKABLE
+                        if (!isButtonClickable(btn)) return;
 
-                    //GAME DIDN'T END
-                    if(!gameEnded){
-                        setHeaderType();
-                        toggleActivePlayer();
+                        //GAME DIDN'T END
+                        if (!gameEnded) {
+                            setButtonText(btn);
+                            setButtonColor(btn);
+                            toggleActivePlayer();
+                        }
+                        shouldGameEnd();
                     }
                 });
 
@@ -145,48 +154,172 @@ public class MainActivity extends AppCompatActivity {
         }
         return grid;
     }
-    private void setHeaderType(){
+
+    private void setButtonText(Button btn) {
         //PLAYER ONE
-        if(activePlayer){
-            txtPlayerOneLabel.setTypeface(Typeface.DEFAULT_BOLD);
-            txtPlayerTwoLabel.setTypeface(null, Typeface.NORMAL);
-        }
-        //PLAYER TWO
-        if(!activePlayer){
-            txtPlayerTwoLabel.setTypeface(Typeface.DEFAULT_BOLD);
-            txtPlayerOneLabel.setTypeface(null, Typeface.NORMAL);
-        }
-    }
-    private void setButtonText(Button btn){
-        //PLAYER ONE
-        if(!activePlayer){
+        if (!activePlayer) {
             btn.setText("X");
         }
         //PLAYER TWO
-        if(activePlayer){
+        if (activePlayer) {
             btn.setText("O");
         }
     }
-    private void setButtonColor(Button btn){
+
+    private void setButtonColor(Button btn) {
         //PLAYER ONE
-        if(!activePlayer){
+        if (!activePlayer) {
             btn.getBackground().setColorFilter(btn.getContext().getResources().getColor(R.color.player_one), PorterDuff.Mode.MULTIPLY);
         }
         //PLAYER TWO
-        if(activePlayer){
+        if (activePlayer) {
             btn.getBackground().setColorFilter(btn.getContext().getResources().getColor(R.color.player_two), PorterDuff.Mode.MULTIPLY);
         }
     }
-    private void toggleActivePlayer(){
+
+    private void toggleActivePlayer() {
         activePlayer = !activePlayer;
     }
-    private void shouldGameEnd(){
-        //CHECK ROWS
-        for (int i = 0; i < gridSize; i++) {
 
+    private boolean valuesAreSet(String[] array) {
+        for (String s : array) {
+            if (s.length() == 0) return false;
         }
-        //CHECK COLUMNS
+        return true;
+    }
 
-        //CHECK DIAGONALS
+    private boolean verifyAllEquals(List<String> list) {
+        return new HashSet<>(list).size() <= 1;
+    }
+
+    private boolean isButtonClickable(Button btn) {
+        return btn.getText().toString().length() == 0;
+    }
+
+    private String getWinningPlayerName() {
+        if (activePlayer) {
+            return "One";
+        } else {
+            return "Two";
+        }
+    }
+
+    private void setWinningPlayerPoints() {
+        String winningPlayer = getWinningPlayerName();
+        if (winningPlayer.equals("One")) {
+            int currentScore = Integer.parseInt(txtPlayerOneScore.getText().toString());
+            txtPlayerOneScore.setText(currentScore + 1 + "");
+        } else {
+            int currentScore = Integer.parseInt(txtPlayerTwoScore.getText().toString());
+            txtPlayerTwoScore.setText(currentScore + 1 + "");
+        }
+    }
+
+    private void handleGameEndState() {
+        gameEnded = true;
+        setWinningPlayerPoints();
+        Toast.makeText(this, "Player " + getWinningPlayerName() + " won the match, congratulations!", Toast.LENGTH_SHORT).show();
+    }
+
+    private void shouldGameEnd() {
+        //CHECK ROWS
+        if (!gameEnded) {
+            for (int row = 0; row < gridSize; row++) {
+                //STOP ITERATING IF GAME ENDED DURING LAST ITERATION
+                if (gameEnded) return;
+
+                //INITIALIZE ARRAY
+                String[] cellsInRow = new String[gridSize];
+
+                //FOR CELL IN ROW
+                for (int cell = 0; cell < buttons.length; cell++) {
+                    //STOP ITERATING IF GAME ENDED DURING LAST ITERATION
+                    if (gameEnded) return;
+
+                    //ADD CELL VALUE TO ROW
+                    cellsInRow[cell] = buttons[row][cell].getText().toString();
+                }
+                if (valuesAreSet(cellsInRow)) {
+                    if (verifyAllEquals(Arrays.asList(cellsInRow))) {
+                        handleGameEndState();
+                    }
+                }
+            }
+        }
+
+        //CHECK COLUMNS
+        if (!gameEnded) {
+            for (int row = 0; row < gridSize; row++) {
+                //INITIALIZE ARRAY
+                String[] cellsInColumn = new String[gridSize];
+
+                //FOR COLUMN IN GRID
+                for (int column = 0; column < gridSize; column++) {
+                    //STOP ITERATING IF GAME ENDED DURING LAST ITERATION
+                    if (gameEnded) return;
+
+                    //ADD CELL VALUE TO COLUMN
+                    cellsInColumn[column] = buttons[column][row].getText().toString();
+                }
+                if (valuesAreSet(cellsInColumn)) {
+                    if (verifyAllEquals(Arrays.asList(cellsInColumn))) {
+                        handleGameEndState();
+                    }
+                }
+            }
+        }
+
+        //CHECK DESC DIAGONAL
+        if (!gameEnded) {
+            //INITIALIZE ARRAY
+            String[] cellsInDescDiagonal = new String[gridSize];
+
+            //FOR ROW IN GRID
+            for (int i = 0; i < gridSize; i++) {
+                //STOP ITERATING IF GAME ENDED DURING LAST ITERATION
+                if (gameEnded) return;
+
+                cellsInDescDiagonal[i] = buttons[i][i].getText().toString();
+            }
+
+            if (valuesAreSet(cellsInDescDiagonal)) {
+                if (verifyAllEquals(Arrays.asList(cellsInDescDiagonal))) {
+                    handleGameEndState();
+                }
+            }
+        }
+
+        //CHECK ASC DIAGONAL
+        if (!gameEnded) {
+            //INITIALIZE ARRAY
+            String[] cellsInAscDiagonal = new String[gridSize];
+            int counter = 0;
+
+            //FOR ROW IN GRID
+            for (int i = gridSize; i > 0; i--) {
+                //STOP ITERATING IF GAME ENDED DURING LAST ITERATION
+                if (gameEnded) return;
+                cellsInAscDiagonal[counter] = buttons[(i - 1)][counter].getText().toString();
+                counter++;
+            }
+
+            if (valuesAreSet(cellsInAscDiagonal)) {
+                if (verifyAllEquals(Arrays.asList(cellsInAscDiagonal))) {
+                    handleGameEndState();
+                }
+            }
+        }
+    }
+
+    private void initiateNewGame() {
+        //REMOVE EXISTING GRID
+        llGameBoard.removeAllViews();
+
+        gameEnded = false;
+        buttons = new Button[gridSize][gridSize];
+
+        //CREATE NEW GRID
+        llGameBoard.addView(generateGrid(gridSize));
+
     }
 }
